@@ -1,6 +1,8 @@
 # ScheduLED
 Shows your Google Calendar schedule on an LED strip
 
+<img src="https://github.com/davepagurek/ScheduLED/blob/master/preview.png?raw=true" />
+
 ## Setup
 ```sh
 bundle install
