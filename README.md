@@ -4,6 +4,11 @@ Shows your Google Calendar schedule on an LED strip
 <img src="https://github.com/davepagurek/ScheduLED/blob/master/preview.png?raw=true" />
 
 ## Setup
+Create a Google Calendar API project here: https://console.developers.google.com/start/api?id=calendar
+
+Go to the **Credentials** tab and create an **OAuth Client ID** with the application type **Other**. Then, download the credentials JSON file into `client_secret.json`.
+
+Then:
 ```sh
 bundle install
 ```
