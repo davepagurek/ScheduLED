@@ -11,7 +11,6 @@ class CalendarLightStrip
   OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
   APPLICATION_NAME = 'Calendar Light Strip'
   CLIENT_SECRETS_PATH = 'client_secret.json' # JSON saved from the Google API website
-  CREDENTIALS_PATH = 
   SCOPE = Google::Apis::CalendarV3::AUTH_CALENDAR_READONLY
 
   attr_reader :account_name
@@ -119,7 +118,7 @@ class CalendarLightStrip
   end
 
   def make_credentials
-    FileUtils.mkdir_p(File.dirname(CREDENTIALS_PATH))
+    FileUtils.mkdir_p(File.dirname(credentials_path))
 
     client_id = Google::Auth::ClientId.from_file(CLIENT_SECRETS_PATH)
     token_store = Google::Auth::Stores::FileTokenStore.new(file: credentials_path)
