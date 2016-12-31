@@ -165,6 +165,3 @@ class CalendarLightStrip
       .sort_by { |event| event.start.date_time || DateTime.now }
   end
 end
-
-strip_maker = CalendarLightStrip.new("dave")
-strip_maker.preview(strip_maker.strip(Time.parse("2017-01-04 07:15:00 -0500"), 18.hours))
