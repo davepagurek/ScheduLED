@@ -14,15 +14,16 @@ class CalendarLightStrip
   SCOPE = Google::Apis::CalendarV3::AUTH_CALENDAR_READONLY
 
   attr_reader :account_name
-  attr_accessor :morning_color, :evening_color, :secondary_angle, :background_angle, :background_dim
+  attr_accessor :morning_color, :evening_color, :secondary_angle, :background_angle, :background_dim, :use_calendar_color
 
-  def initialize(account_name, morning_color: "#68D7FC", evening_color: "#1ECA2F", secondary_angle: 40, background_angle: 180, background_dim: 25)
+  def initialize(account_name, morning_color: "#68D7FC", evening_color: "#1ECA2F", secondary_angle: 40, background_angle: 180, background_dim: 25, use_calendar_color: false)
     @account_name = account_name
     @morning_color = Color::RGB.from_html(morning_color) # color for calendar events in the morning
     @evening_color = Color::RGB.from_html(evening_color) # color for calendar events in the evening
     @secondary_angle = secondary_angle # hue shift when two events are right next to each other
     @background_angle = background_angle # hue shift when there is no event (180 makes a complementary color scheme)
     @background_dim = background_dim # saturation/luminosity dim when there is no event
+    @use_calendar_color = use_calendar_color # whether or not to use the color from Google or generate one
   end
 
   def strip(start = Time.now, duration = 24.hours, length = 30)
@@ -37,13 +38,19 @@ class CalendarLightStrip
     end
 
     ([events.first, nil] + events[1..-1].zip(events[0..-2])).reduce([]) do |colors, (event, prev)|
-      if event
-        if colors.empty?
+      if event && use_calendar_color && event.calendar_color
+        if colors.empty? || prev.nil?
+          colors.push(event.calendar_color)
+        elsif event == prev
+          colors.push(colors.last)
+        else
+          colors.push(colors.last == event.calendar_color ? adjacent_event_color(event.calendar_color) : event.calendar_color)
+        end
+      elsif event
+        if colors.empty? || prev.nil?
           colors.push(color_primary(start))
         elsif event == prev
           colors.push(colors.last)
-        elsif prev.nil?
-          colors.push(color_primary(start))
         else
           colors.push(colors.last == color_primary(start) ? color_secondary(start) : color_primary(start))
         end
@@ -79,10 +86,10 @@ class CalendarLightStrip
       }
     CSS
 
-  html = "<html><head><style>#{css}</style></head><body><div class='lights'>#{body}</div></body></html>"
+    html = "<html><head><style>#{css}</style></head><body><div class='lights'>#{body}</div></body></html>"
 
-  File.write(preview_file, html)
-  `open #{preview_file}`
+    File.write(preview_file, html)
+    `open #{preview_file}`
   end
 
   def color_primary(time)
@@ -98,7 +105,11 @@ class CalendarLightStrip
   end
 
   def color_secondary(time)
-    color_primary(time).to_hsl.tap do |color|
+    adjacent_event_color(color_primary(time))
+  end
+
+  def adjacent_event_color(event_color)
+    event_color.to_hsl.tap do |color|
       color.hue += secondary_angle
     end.to_rgb
   end
@@ -109,6 +120,20 @@ class CalendarLightStrip
       color.saturation -= background_dim
       color.luminosity -= background_dim/4
     end.to_rgb
+  end
+
+  class Event < SimpleDelegator
+    attr_reader :calendar
+
+    def initialize(event, calendar)
+      __setobj__(event)
+      @calendar = calendar
+    end
+
+    def calendar_color
+      return nil unless calendar && calendar.background_color
+      Color::RGB.from_html(calendar.background_color)
+    end
   end
 
   private
@@ -151,14 +176,18 @@ class CalendarLightStrip
     service.list_calendar_lists
       .items
       .reduce([]) do |items, calendar|
-        items + service.list_events(
-          calendar.id,
-          max_results: 10,
-          single_events: true,
-          order_by: 'startTime',
-          time_min: start.iso8601,
-          time_max: (start + duration).iso8601
-        ).items
+        items + (
+          service.list_events(
+            calendar.id,
+            max_results: 10,
+            single_events: true,
+            order_by: 'startTime',
+            time_min: start.iso8601,
+            time_max: (start + duration).iso8601
+          )
+          .items
+          .map { |event| Event.new(event, calendar) }
+        )
       end
       .select { |event| event.start.date_time } # Exclude full-day events
       .sort_by { |event| event.start.date_time || DateTime.now }
